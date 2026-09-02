@@ -1,0 +1,73 @@
+services:
+  palworld:
+    image: thijsvanloef/palworld-server-docker:latest
+    container_name: palworld-server
+    restart: unless-stopped
+    stop_grace_period: 45s
+
+    ports:
+      - "8211:8211/udp"     # game
+      - "27015:27015/udp"   # steam query
+      # RCON (25575) and REST API (8212) are deliberately NOT published.
+      # Use: docker exec -it palworld-server rcon-cli
+
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: "Europe/Amsterdam"
+
+      # --- server identity ---
+      SERVER_NAME: "optiplex"
+      SERVER_DESCRIPTION: "private"
+      PLAYERS: 4
+      PORT: 8211
+      QUERY_PORT: 27015
+      COMMUNITY: false                  # not listed publicly
+      CROSSPLAY_PLATFORMS: "(Steam)"
+      SERVER_PASSWORD: ${SERVER_PASSWORD}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+
+      # --- management interfaces (internal only) ---
+      RCON_ENABLED: true
+      RCON_PORT: 25575
+      REST_API_ENABLED: true            # required by AUTO_PAUSE
+      REST_API_PORT: 8212
+      ENABLE_PLAYER_LOGGING: true       # required by AUTO_PAUSE
+
+      # --- auto-pause disabled on purpose: the world must keep running while offline ---
+      AUTO_PAUSE_ENABLED: false
+
+      # --- memory-leak mitigation: nightly restart ---
+      AUTO_REBOOT_ENABLED: true
+      AUTO_REBOOT_CRON_EXPRESSION: "0 4,14 * * *"
+      AUTO_REBOOT_WARN_MINUTES: 5
+      AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: false
+
+      # --- keep in sync with Steam client builds ---
+      UPDATE_ON_BOOT: true
+      AUTO_UPDATE_ENABLED: true
+      AUTO_UPDATE_CRON_EXPRESSION: "45 3 * * *"
+      AUTO_UPDATE_WARN_MINUTES: 5
+
+      # --- backups ---
+      BACKUP_ENABLED: true
+      BACKUP_CRON_EXPRESSION: "30 3 * * *"
+      DELETE_OLD_BACKUPS: true
+      OLD_BACKUP_DAYS: 14
+
+      # --- world settings ---
+      ENABLE_INVADER_ENEMY: "True"      # raids enabled by choice; costs memory headroom
+      DEATH_PENALTY: "Item"
+
+    volumes:
+      - ./data:/palworld/
+
+    # Hard ceiling so a leaking Palworld can never OOM-kill the neighbours or sshd.
+    mem_limit: 6g
+    mem_reservation: 2g
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

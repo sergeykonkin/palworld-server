@@ -1,0 +1,11 @@
+# Secrets — lives only on the server, never in git
+.env
+
+# Local machine settings: server address and stack path
+.env.local
+
+# World data, saves, backups (~5 GB, lives on the server's SSD)
+data/
+
+# Superseded by git history
+*.bak
