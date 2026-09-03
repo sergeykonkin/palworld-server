@@ -35,7 +35,8 @@ services:
       ENABLE_PLAYER_LOGGING: true       # required by AUTO_PAUSE
 
       # --- auto-pause disabled on purpose: the world must keep running while offline ---
-      AUTO_PAUSE_ENABLED: false
+      AUTO_PAUSE_ENABLED: true
+      AUTO_PAUSE_TIMEOUT_EST: 1800 # 30m
 
       # --- memory-leak mitigation: nightly restart ---
       AUTO_REBOOT_ENABLED: true

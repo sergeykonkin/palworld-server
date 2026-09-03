@@ -294,9 +294,7 @@ not change, that file needs no editing.
   as it is. Put the password back before opening 8211 to the outside.
 - `ENABLE_INVADER_ENEMY=True` — raids are on by choice. They are the largest single
   source of memory growth, which is why there are two restarts a day rather than one.
-- `AUTO_PAUSE_ENABLED=false` — **off on purpose.** Auto-pause freezes world time when
-  nobody is online, and the whole point of a dedicated server is that base pals keep
-  working. The price is that the leak accumulates around the clock.
+- `AUTO_PAUSE_ENABLED=true` — pause the world after `AUTO_PAUSE_TIMEOUT_EST=1800` seconds (30m) of player inactivity.
 - `mem_limit=6g` — a hard ceiling. It stops a bloated Palworld from OOM-killing the
   neighbouring services and sshd on a machine with 8 GB. This is the main thing
   protecting everything else running there.
