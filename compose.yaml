@@ -1,3 +1,5 @@
+name: palworld
+
 services:
   palworld:
     image: thijsvanloef/palworld-server-docker:latest
@@ -7,68 +9,52 @@ services:
 
     ports:
       - "8211:8211/udp"     # game
-      - "27015:27015/udp"   # steam query
-      # RCON (25575) and REST API (8212) are deliberately NOT published.
-      # Use: docker exec -it palworld-server rcon-cli
+      # Administration is available through docker --context optiplex compose exec.
 
     environment:
-      PUID: 1000
-      PGID: 1000
+      # server identity and access
       TZ: "Europe/Amsterdam"
-
-      # --- server identity ---
       SERVER_NAME: "optiplex"
-      SERVER_DESCRIPTION: "private"
+      SERVER_DESCRIPTION: "Friends server"
       PLAYERS: 4
-      PORT: 8211
-      QUERY_PORT: 27015
-      COMMUNITY: false                  # not listed publicly
       CROSSPLAY_PLATFORMS: "(Steam)"
-      SERVER_PASSWORD: ${SERVER_PASSWORD}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SERVER_PASSWORD: ${SERVER_PASSWORD:?Set SERVER_PASSWORD in the laptop .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the laptop .env}
 
-      # --- management interfaces (internal only) ---
+      # administration and player list
       RCON_ENABLED: true
-      RCON_PORT: 25575
-      REST_API_ENABLED: true            # required by AUTO_PAUSE
-      REST_API_PORT: 8212
-      ENABLE_PLAYER_LOGGING: true       # required by AUTO_PAUSE
+      SHOW_PLAYER_LIST: "True"
 
-      # --- auto-pause disabled on purpose: the world must keep running while offline ---
+      # empty-world pause
       AUTO_PAUSE_ENABLED: true
       AUTO_PAUSE_TIMEOUT_EST: 1800 # 30m
 
-      # --- memory-leak mitigation: nightly restart ---
+      # scheduled restart
       AUTO_REBOOT_ENABLED: true
-      AUTO_REBOOT_CRON_EXPRESSION: "0 4,14 * * *"
-      AUTO_REBOOT_WARN_MINUTES: 5
-      AUTO_REBOOT_EVEN_IF_PLAYERS_ONLINE: false
+      AUTO_REBOOT_CRON_EXPRESSION: "0 4 * * *"
 
-      # --- keep in sync with Steam client builds ---
-      UPDATE_ON_BOOT: true
+      # game updates
       AUTO_UPDATE_ENABLED: true
-      AUTO_UPDATE_CRON_EXPRESSION: "45 3 * * *"
+      AUTO_UPDATE_CRON_EXPRESSION: "45 * * * *"
       AUTO_UPDATE_WARN_MINUTES: 5
 
-      # --- backups ---
-      BACKUP_ENABLED: true
+      # backup schedule and retention
       BACKUP_CRON_EXPRESSION: "30 3 * * *"
       DELETE_OLD_BACKUPS: true
       OLD_BACKUP_DAYS: 14
 
-      # --- world settings ---
-      ENABLE_INVADER_ENEMY: "True"      # raids enabled by choice; costs memory headroom
-      DEATH_PENALTY: "Item"
-
     volumes:
-      - ./data:/palworld/
+      - type: bind
+        source: /d/palworld/data
+        target: /palworld
+        bind:
+          create_host_path: false
 
-    # Hard ceiling so a leaking Palworld can never OOM-kill the neighbours or sshd.
+    # Container memory ceiling; the host also needs memory for the OS and Docker.
     mem_limit: 6g
     mem_reservation: 2g
 
     logging:
-      driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
