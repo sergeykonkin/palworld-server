@@ -48,7 +48,7 @@ services:
         source: /d/palworld
         target: /palworld
         bind:
-          create_host_path: false
+          create_host_path: true
 
     # Container memory ceiling; the host also needs memory for the OS and Docker.
     mem_limit: 6g

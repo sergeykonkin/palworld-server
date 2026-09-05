@@ -36,18 +36,18 @@ See [Docker's SSH context documentation](https://docs.docker.com/engine/security
 | Container: `/palworld` | Bind mount of `/d/palworld` |
 
 The bind source is an absolute path on **optiplex**, not on the laptop.
-Compose requires it to exist. `/d` must be mounted on the intended disk before
-creating the directory or starting the container.
+Compose creates it on first start (`create_host_path: true`). `/d` must be mounted
+on the intended disk before starting the container.
 
-One-time host preparation for an empty installation:
+One-time host preparation — confirm `/d` is a mountpoint:
 
 ```sh
 ssh optiplex 'findmnt --mountpoint /d'
-ssh optiplex 'mountpoint -q /d && install -d -o 1000 -g 1000 -m 0750 /d/palworld'
 ```
 
-The image defaults to UID/GID `1000:1000`, matching the data owner. The host must
-mount `/d` before Docker starts containers, including after a reboot.
+The image runs as root on boot, then `chown`s `/palworld` to its `steam` user
+remapped to UID/GID `1000:1000`, so Docker creating the host dir as root is fine.
+The host must mount `/d` before Docker starts containers, including after a reboot.
 
 Create `.env` on the laptop from `.env.example`, set two different passwords,
 and restrict its permissions:
