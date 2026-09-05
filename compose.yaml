@@ -45,7 +45,7 @@ services:
 
     volumes:
       - type: bind
-        source: /d/palworld/data
+        source: /d/palworld
         target: /palworld
         bind:
           create_host_path: false

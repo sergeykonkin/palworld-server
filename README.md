@@ -31,9 +31,9 @@ See [Docker's SSH context documentation](https://docs.docker.com/engine/security
 |---|---|
 | Laptop: this repository | Compose configuration and documentation |
 | Laptop: `.env` | Join and administrator passwords; excluded from git |
-| optiplex: `/d/palworld/data` | Server installation, configuration and saves |
-| optiplex: `/d/palworld/data/backups` | Container-managed backup archives |
-| Container: `/palworld` | Bind mount of `/d/palworld/data` |
+| optiplex: `/d/palworld` | Server installation, configuration and saves |
+| optiplex: `/d/palworld/backups` | Container-managed backup archives |
+| Container: `/palworld` | Bind mount of `/d/palworld` |
 
 The bind source is an absolute path on **optiplex**, not on the laptop.
 Compose requires it to exist. `/d` must be mounted on the intended disk before
@@ -43,7 +43,7 @@ One-time host preparation for an empty installation:
 
 ```sh
 ssh optiplex 'findmnt --mountpoint /d'
-ssh optiplex 'mountpoint -q /d && install -d -o 1000 -g 1000 -m 0750 /d/palworld/data'
+ssh optiplex 'mountpoint -q /d && install -d -o 1000 -g 1000 -m 0750 /d/palworld'
 ```
 
 The image defaults to UID/GID `1000:1000`, matching the data owner. The host must
