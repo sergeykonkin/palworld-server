@@ -84,6 +84,7 @@ depends on routing and firewall rules.
 | 8211/udp | Game traffic | Host port 8211 |
 | 25575/tcp | RCON | Container only |
 | 8212/tcp | REST API | Container only |
+| 8321/tcp | Read-only status API | Localhost only |
 
 For internet access, the router needs a forward for UDP 8211 to optiplex and the DMZ
 firewall must allow the traffic. Router forwarding is configured separately.
@@ -93,6 +94,46 @@ SSH access is for the management network or VPN.
 
 Players connect in Palworld using `<SERVER_ADDRESS>:8211` and the join password.
 From a network with access to the DMZ, the address is `10.4.5.6:8211`.
+
+## Status API sidecar
+
+The `api` service (`palworld-api`, built from `sidecar/`) exposes a read-only JSON
+API. It polls the game's REST API for the player list and reads the auto-pause flag
+file (`.paused`) from the data mount, which is bind-mounted read-only. It never sends
+commands to the server, and it does not query the REST API while the server is paused
+(a paused game process cannot answer anyway).
+
+| Endpoint | Contents |
+|---|---|
+| `/api/status` | Full snapshot: reachability, pause state (yes/no/unknown) and since-when, server info and metrics, online players with `online_since` (players still loading are excluded) |
+| `/api/events` | Ring buffer of join/leave/pause/resume events (`?limit=N`, max 500) |
+| `/healthz` | Liveness for the container health check |
+
+Player IPs are never exposed. Event history is in-memory and resets when the sidecar
+restarts. Timestamps are UTC.
+
+`server.paused` has three states: `"no"` when someone is online or a resume/join
+was observed since the sidecar started; `"yes"` after an observed auto-pause, with
+`paused_since` taken from the `.paused` flag file's mtime; `"unknown"` when the
+sidecar has observed nothing yet and nobody is online.
+
+Published on `127.0.0.1:8321` on optiplex only. Query it through an SSH tunnel:
+
+```sh
+ssh -L 8321:127.0.0.1:8321 -N optiplex
+curl -s http://127.0.0.1:8321/api/status
+```
+
+To expose it beyond localhost later (for example through cloudflared), set
+`API_TOKEN` in `.env` and uncomment the `API_TOKEN` line in `compose.yaml`;
+`/api/*` then requires `Authorization: Bearer <API_TOKEN>`.
+
+First deployment builds the image on optiplex and starts only the new service;
+the game container is not recreated:
+
+```sh
+docker --context optiplex compose up -d --build api
+```
 
 ## Operations from the laptop
 
@@ -116,6 +157,11 @@ docker --context optiplex compose exec palworld autopause resume
 docker --context optiplex compose exec palworld rcon-cli
 docker --context optiplex compose exec palworld backup
 docker --context optiplex compose exec palworld ls -lh /palworld/backups
+
+# Read-only status API (see "Status API sidecar")
+ssh -L 8321:127.0.0.1:8321 -N optiplex
+curl -s http://127.0.0.1:8321/api/status
+docker --context optiplex compose logs -f api
 
 # Copy backup archives to the laptop
 docker --context optiplex compose cp palworld:/palworld/backups ./backups

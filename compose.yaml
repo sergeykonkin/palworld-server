@@ -58,3 +58,37 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Read-only JSON API: online players, pause state, join/leave/pause events.
+  # Localhost-only on optiplex; expose later via cloudflared or an SSH tunnel.
+  api:
+    build: ./sidecar
+    container_name: palworld-api
+    restart: unless-stopped
+
+    depends_on:
+      - palworld
+
+    environment:
+      TZ: "Europe/Amsterdam"
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the laptop .env}
+      PALWORLD_REST_URL: http://palworld:8212
+      # Optional bearer token for /api/* (set when exposing beyond localhost):
+      # API_TOKEN: ${API_TOKEN:-}
+
+    ports:
+      - "127.0.0.1:8321:8080"  # readonly JSON API, localhost only
+
+    volumes:
+      # Auto-pause flag file (.paused) lives on the data mount; read-only.
+      - type: bind
+        source: /d/palworld
+        target: /state
+        read_only: true
+
+    mem_limit: 64m
+
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
