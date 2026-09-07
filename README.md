@@ -84,7 +84,7 @@ depends on routing and firewall rules.
 | 8211/udp | Game traffic | Host port 8211 |
 | 25575/tcp | RCON | Container only |
 | 8212/tcp | REST API | Container only |
-| 8321/tcp | Read-only status API | Localhost only |
+| 8321/tcp | Status API + dashboard | Host port 8321 (LAN/DMZ) |
 
 For internet access, the router needs a forward for UDP 8211 to optiplex and the DMZ
 firewall must allow the traffic. Router forwarding is configured separately.
@@ -93,6 +93,7 @@ RCON and REST API are managed through Docker over SSH and have no router forward
 SSH access is for the management network or VPN.
 
 Players connect in Palworld using `<SERVER_ADDRESS>:8211` and the join password.
+The public address is `pal.enenmylav.cloud:8211`.
 From a network with access to the DMZ, the address is `10.4.5.6:8211`.
 
 ## Status API sidecar
@@ -105,6 +106,7 @@ commands to the server, and it does not query the REST API while the server is p
 
 | Endpoint | Contents |
 |---|---|
+| `/` | Dashboard page: status pill, players, server metrics, pause state, live event feed |
 | `/api/status` | Full snapshot: reachability, pause state (yes/no/unknown) and since-when, server info and metrics, online players with `online_since` (players still loading are excluded) |
 | `/api/events` | Ring buffer of join/leave/pause/resume events (`?limit=N`, max 500) |
 | `/healthz` | Liveness for the container health check |
@@ -117,16 +119,19 @@ was observed since the sidecar started; `"yes"` after an observed auto-pause, wi
 `paused_since` taken from the `.paused` flag file's mtime; `"unknown"` when the
 sidecar has observed nothing yet and nobody is online.
 
-Published on `127.0.0.1:8321` on optiplex only. Query it through an SSH tunnel:
+Published on port `8321` on all optiplex interfaces, so the dashboard is reachable
+from the LAN at `http://10.4.5.6:8321/`. There is no router forward for this port,
+so it is not internet-reachable. An SSH tunnel works too:
 
 ```sh
 ssh -L 8321:127.0.0.1:8321 -N optiplex
 curl -s http://127.0.0.1:8321/api/status
 ```
 
-To expose it beyond localhost later (for example through cloudflared), set
-`API_TOKEN` in `.env` and uncomment the `API_TOKEN` line in `compose.yaml`;
-`/api/*` then requires `Authorization: Bearer <API_TOKEN>`.
+To require authentication (recommended before exposing it any further, for example
+through cloudflared), set `API_TOKEN` in `.env` and uncomment the `API_TOKEN` line
+in `compose.yaml`; `/api/*` then requires `Authorization: Bearer <API_TOKEN>`,
+and the dashboard asks for the token once and remembers it in the browser.
 
 First deployment builds the image on optiplex and starts only the new service;
 the game container is not recreated:
@@ -188,7 +193,7 @@ multipliers, four bases per guild and 15 workers per base.
 | Setting | Value |
 |---|---|
 | Timezone | Europe/Amsterdam, including daylight saving time |
-| Server identity | optiplex; Friends server |
+| Server identity | EnemyLAV; no description |
 | Player access | Four Steam players; join and administrator passwords |
 | RCON | Enabled; container only |
 | Player list | Enabled |

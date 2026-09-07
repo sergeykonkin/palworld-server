@@ -3,7 +3,7 @@ FROM python:3.13-alpine
 RUN adduser -D -u 10001 app
 USER app
 WORKDIR /app
-COPY --chown=app:app app.py .
+COPY --chown=app:app app.py index.html ./
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \

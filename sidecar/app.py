@@ -4,6 +4,7 @@
 Polls the game's REST API for the player list and watches the auto-pause
 flag file on the (read-only) data bind mount. Serves:
 
+  GET /             dashboard page (index.html, polls the JSON API)
   GET /api/status   full snapshot: reachability, pause state (yes/no/unknown),
                     info, metrics, online players with online_since
   GET /api/events   ring buffer of join/leave/pause/resume events (?limit=N)
@@ -32,6 +33,7 @@ from urllib.parse import parse_qs, urlparse
 
 REST_URL = os.environ.get("PALWORLD_REST_URL", "http://palworld:8212").rstrip("/")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+CONNECT_ADDRESS = os.environ.get("CONNECT_ADDRESS", "")
 POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 REST_TIMEOUT = float(os.environ.get("REST_TIMEOUT", "3"))
 PAUSE_FILE = Path(os.environ.get("PAUSE_FILE", "/state/.paused"))
@@ -42,6 +44,8 @@ FAIL_THRESHOLD = int(os.environ.get("FAIL_THRESHOLD", "3"))
 INFO_TTL = float(os.environ.get("INFO_TTL", "300"))
 
 _ZERO_IDS = {"0" * 8, "0" * 32}
+
+INDEX_HTML = Path(__file__).with_name("index.html")
 
 
 def log(msg):
@@ -216,14 +220,16 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "palworld-api/1.0"
     protocol_version = "HTTP/1.1"
 
-    def _send(self, code, obj):
-        body = json.dumps(obj, indent=2).encode()
+    def _send_bytes(self, code, body, content_type):
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _send(self, code, obj):
+        self._send_bytes(code, json.dumps(obj, indent=2).encode(), "application/json")
 
     def _authorized(self):
         if API_TOKEN is None:
@@ -240,14 +246,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "bearer token required"})
 
         st = self.server.state
-        if path == "/":
-            return self._send(200, {"routes": ["/api/status", "/api/events", "/healthz"]})
+        if path in ("/", "/index.html"):
+            try:
+                return self._send_bytes(200, INDEX_HTML.read_bytes(),
+                                        "text/html; charset=utf-8")
+            except OSError:
+                return self._send(404, {"error": "dashboard not installed"})
         if path == "/api/status":
             with st.lock:
                 players = sorted(st.players.values(), key=lambda p: p["online_since"])
                 return self._send(200, {
                     "now": utcnow_iso(),
                     "sidecar_started_at": st.started_at,
+                    "connect": CONNECT_ADDRESS or None,
                     "server": {
                         "reachable": st.reachable,
                         "paused": paused_state(st),

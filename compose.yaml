@@ -14,8 +14,7 @@ services:
     environment:
       # server identity and access
       TZ: "Europe/Amsterdam"
-      SERVER_NAME: "optiplex"
-      SERVER_DESCRIPTION: "Friends server"
+      SERVER_NAME: "EnemyLAV"
       PLAYERS: 4
       CROSSPLAY_PLATFORMS: "(Steam)"
       SERVER_PASSWORD: ${SERVER_PASSWORD:?Set SERVER_PASSWORD in the laptop .env}
@@ -73,11 +72,14 @@ services:
       TZ: "Europe/Amsterdam"
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the laptop .env}
       PALWORLD_REST_URL: http://palworld:8212
+      # Shown on the dashboard as the connect address (the game API does not
+      # know its own public hostname):
+      CONNECT_ADDRESS: "pal.enenmylav.cloud:8211"
       # Optional bearer token for /api/* (set when exposing beyond localhost):
       # API_TOKEN: ${API_TOKEN:-}
 
     ports:
-      - "127.0.0.1:8321:8080"  # readonly JSON API, localhost only
+      - "8321:8080"  # readonly JSON API + dashboard, LAN/DMZ
 
     volumes:
       # Auto-pause flag file (.paused) lives on the data mount; read-only.

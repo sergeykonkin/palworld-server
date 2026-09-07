@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palworld server</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦕</text></svg>">
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #21262d;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --amber: #d29922; --red: #f85149; --gray: #6e7681;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 20px; font-weight: 650; letter-spacing: .2px; }
+  header h1 .sub { color: var(--muted); font-weight: 400; }
+  header h1 .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px; font-weight: 650; font-size: 13px;
+    border: 1px solid var(--border); background: var(--card);
+  }
+  .pill .dot { width: 9px; height: 9px; border-radius: 50%; animation: pulse 2s infinite; }
+  .pill.running { color: var(--green); } .pill.running .dot { background: var(--green); }
+  .pill.paused  { color: var(--amber); } .pill.paused  .dot { background: var(--amber); }
+  .pill.unknown { color: var(--gray);  } .pill.unknown .dot { background: var(--gray); }
+  .pill.offline { color: var(--red);   } .pill.offline .dot { background: var(--red); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  main {
+    width: 100%; max-width: 980px; margin: 0 auto; padding: 24px;
+    display: flex; flex-direction: column; gap: 16px; flex: 1;
+  }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+  }
+  .card h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: 12px; font-weight: 650;
+  }
+  .big { font-size: 26px; font-weight: 700; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .kv { display: flex; justify-content: space-between; padding: 4px 0; }
+  .kv + .kv { border-top: 1px solid var(--border); }
+  .kv .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .good { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--red); }
+  .player {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  }
+  .player + .player { border-top: 1px solid var(--border); }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: #0d1117;
+  }
+  .player .who { flex: 1; min-width: 0; }
+  .player .name { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player .meta { font-size: 12px; color: var(--muted); }
+  .lvl {
+    background: #21262d; border-radius: 6px; padding: 2px 8px;
+    font-size: 12px; font-weight: 700; color: var(--accent);
+  }
+  .empty { color: var(--muted); padding: 8px 0; }
+  #events { max-height: 320px; overflow-y: auto; }
+  .ev { display: flex; gap: 10px; padding: 6px 0; font-size: 14px; align-items: baseline; }
+  .ev + .ev { border-top: 1px solid var(--border); }
+  .ev .t { color: var(--muted); font-size: 12px; flex: none; width: 92px; font-variant-numeric: tabular-nums; }
+  .ev .icon { flex: none; width: 20px; text-align: center; }
+  footer {
+    padding: 14px 24px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; text-align: center;
+  }
+  #banner {
+    display: none; padding: 10px 24px; text-align: center;
+    background: #f8514922; color: var(--red); font-weight: 600; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div id="banner">Sidecar API unreachable — showing last known data</div>
+<header>
+  <h1>🦕 <span id="servername">Palworld</span> <span class="sub" id="serverdesc"></span> <span class="sub addr" id="connect"></span></h1>
+  <span class="pill unknown" id="statuspill"><span class="dot"></span><span id="statustext">…</span></span>
+</header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>Players <span id="playercount"></span></h2>
+      <div id="players"></div>
+    </div>
+    <div class="card">
+      <h2>Server</h2>
+      <div id="serverinfo"></div>
+      <div class="note" id="stalenote" hidden>Server is paused — values are from before the pause.</div>
+    </div>
+    <div class="card">
+      <h2>Pause state</h2>
+      <div id="pausestate"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Events</h2>
+    <div id="events"></div>
+  </div>
+</main>
+<footer id="foot"></footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const tokenStore = {
+  get: () => { try { return localStorage.getItem('palworld_api_token') || ''; } catch { return ''; } },
+  set: (t) => { try { localStorage.setItem('palworld_api_token', t); } catch {} },
+};
+
+async function api(path) {
+  const headers = tokenStore.get() ? { Authorization: 'Bearer ' + tokenStore.get() } : {};
+  const r = await fetch(path, { headers });
+  if (r.status === 401) {
+    const t = prompt('This API requires a token:');
+    if (t) { tokenStore.set(t); return api(path); }
+    throw new Error('unauthorized');
+  }
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
+}
+
+const esc = (s) => String(s ?? '');
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+
+function ago(isoTs) {
+  const s = Math.max(0, (Date.now() - new Date(isoTs).getTime()) / 1000);
+  if (s < 45) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
+}
+function dur(sec) {
+  sec = Math.round(sec);
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function onlineFor(isoTs) {
+  return 'online ' + dur((Date.now() - new Date(isoTs).getTime()) / 1000);
+}
+function hue(str) {
+  let h = 0;
+  for (const c of String(str)) h = (h * 31 + c.codePointAt(0)) % 360;
+  return h;
+}
+function pingCls(p) { return p == null ? '' : p < 60 ? 'good' : p < 120 ? 'warn' : 'bad'; }
+function fpsCls(f) { return f == null ? '' : f >= 50 ? 'good' : f >= 30 ? 'warn' : 'bad'; }
+
+function renderStatus(d) {
+  const s = d.server;
+  const pill = $('statuspill'), txt = $('statustext');
+  let cls, label;
+  if (s.reachable === false)      { cls = 'offline'; label = 'OFFLINE'; }
+  else if (s.paused === 'yes')    { cls = 'paused';  label = 'PAUSED'; }
+  else if (s.paused === 'unknown'){ cls = 'unknown'; label = 'STATE UNKNOWN'; }
+  else                            { cls = 'running'; label = 'RUNNING'; }
+  pill.className = 'pill ' + cls;
+  txt.textContent = label;
+
+  const info = s.info || {};
+  $('servername').textContent = info.servername || 'Palworld';
+  $('serverdesc').textContent = info.description ? '· ' + info.description : '';
+  $('connect').textContent = d.connect ? '· ' + d.connect : '';
+  document.title = 'Palworld · ' + (info.servername || 'server');
+
+  // players
+  const max = s.metrics && s.metrics.maxplayernum;
+  $('playercount').textContent = `— ${d.players.length}${max ? '/' + max : ''}`;
+  const box = $('players');
+  box.replaceChildren();
+  if (!d.players.length) {
+    box.append(
+      el('div', 'empty', 'Nobody online.'),
+      el('div', 'small muted', 'The server auto-pauses after 30 idle minutes.'),
+    );
+  }
+  for (const p of d.players) {
+    const row = el('div', 'player');
+    const av = el('div', 'avatar', esc(p.name).slice(0, 1).toUpperCase() || '?');
+    av.style.background = `hsl(${hue(p.user_id || p.name)}, 65%, 65%)`;
+    const who = el('div', 'who');
+    who.append(el('div', 'name', p.name));
+    const meta = [];
+    if (p.account && p.account !== p.name) meta.push(p.account);
+    meta.push(onlineFor(p.online_since));
+    who.append(el('div', 'meta', meta.join(' · ')));
+    row.append(av, who);
+    if (p.ping != null) row.append(el('span', 'small ' + pingCls(p.ping), Math.round(p.ping) + ' ms'));
+    if (p.level != null) row.append(el('span', 'lvl', 'Lv ' + p.level));
+    box.append(row);
+  }
+
+  // server info
+  const m = s.metrics || {};
+  const rows = [
+    ['Version', info.version || '—', ''],
+    ['FPS', m.serverfps ?? '—', fpsCls(m.serverfps)],
+    ['Uptime', m.uptime != null ? dur(m.uptime) : '—', ''],
+    ['In-game day', m.days ?? '—', ''],
+    ['Base camps', m.basecampnum ?? '—', ''],
+  ];
+  const si = $('serverinfo');
+  si.replaceChildren();
+  for (const [k, v, cls] of rows) {
+    const kv = el('div', 'kv');
+    kv.append(el('span', 'muted', k), el('span', 'v ' + cls, String(v)));
+    si.append(kv);
+  }
+  $('stalenote').hidden = s.paused !== 'yes';
+
+  // pause card
+  const ps = $('pausestate');
+  ps.replaceChildren();
+  if (s.paused === 'yes') {
+    ps.append(el('div', 'big warn', 'Paused'));
+    if (s.paused_since) {
+      const t = new Date(s.paused_since);
+      ps.append(el('div', 'small muted', `since ${t.toLocaleTimeString()} (${ago(s.paused_since)})`));
+    }
+    ps.append(el('div', 'note', 'The world is frozen until a player connects.'));
+  } else if (s.paused === 'no') {
+    ps.append(el('div', 'big good', 'Not paused'));
+  } else {
+    ps.append(el('div', 'big', 'Unknown'));
+    ps.append(el('div', 'note', 'Sidecar restarted and has not observed a pause, resume or player yet.'));
+  }
+
+  $('foot').textContent =
+    `updated ${new Date(d.now).toLocaleTimeString()} · sidecar up since ${new Date(d.sidecar_started_at).toLocaleString()}`;
+}
+
+const EV_ICON = {
+  join: ['🟢', ''], leave: ['🔴', ''], pause: ['⏸️', ''], resume: ['▶️', ''],
+  server_unreachable: ['⚠️', ''], server_reachable: ['✅', ''], sidecar_start: ['🚀', ''],
+};
+function evText(e) {
+  switch (e.type) {
+    case 'join':  return `${e.player} joined`;
+    case 'leave': return `${e.player} left`;
+    case 'pause': return `auto-paused${e.since ? ' (since ' + new Date(e.since).toLocaleTimeString() + ')' : ''}`;
+    case 'resume':return 'resumed';
+    case 'server_unreachable': return `server unreachable (${e.detail || '?'})`;
+    case 'server_reachable':   return 'server reachable again';
+    case 'sidecar_start':      return 'sidecar started';
+    default: return e.type;
+  }
+}
+function renderEvents(d) {
+  const box = $('events');
+  box.replaceChildren();
+  const list = [...d.events].reverse().slice(0, 50);
+  if (!list.length) box.append(el('div', 'empty', 'No events yet.'));
+  for (const e of list) {
+    const row = el('div', 'ev');
+    row.append(
+      el('span', 't', ago(e.ts)),
+      el('span', 'icon', (EV_ICON[e.type] || ['•'])[0]),
+      el('span', '', evText(e)),
+    );
+    box.append(row);
+  }
+}
+
+async function refresh() {
+  try {
+    const [status, events] = await Promise.all([api('/api/status'), api('/api/events?limit=50')]);
+    $('banner').style.display = 'none';
+    renderStatus(status);
+    renderEvents(events);
+  } catch (err) {
+    $('banner').style.display = 'block';
+    console.error(err);
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
