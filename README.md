@@ -93,7 +93,7 @@ RCON and REST API are managed through Docker over SSH and have no router forward
 SSH access is for the management network or VPN.
 
 Players connect in Palworld using `<SERVER_ADDRESS>:8211` and the join password.
-The public address is `pal.enenmylav.cloud:8211`.
+The public address is `pal.enemylav.cloud:8211`.
 From a network with access to the DMZ, the address is `10.4.5.6:8211`.
 
 ## Status API sidecar
@@ -128,10 +128,34 @@ ssh -L 8321:127.0.0.1:8321 -N optiplex
 curl -s http://127.0.0.1:8321/api/status
 ```
 
-To require authentication (recommended before exposing it any further, for example
-through cloudflared), set `API_TOKEN` in `.env` and uncomment the `API_TOKEN` line
-in `compose.yaml`; `/api/*` then requires `Authorization: Bearer <API_TOKEN>`,
+To require authentication, set `API_TOKEN` in `.env` and uncomment the `API_TOKEN`
+line in `compose.yaml`; `/api/*` then requires `Authorization: Bearer <API_TOKEN>`,
 and the dashboard asks for the token once and remembers it in the browser.
+
+### Internet exposure via Cloudflare Tunnel
+
+The `cloudflared` service runs a remotely-managed Cloudflare Tunnel. It dials
+out to Cloudflare, so no router forward or inbound port is needed.
+
+One-time setup in the [Zero Trust dashboard](https://one.dash.cloudflare.com/):
+
+1. Networks → Tunnels → Add a tunnel → cloudflared. Copy the token from the
+   shown install command into `.env` as `TUNNEL_TOKEN`.
+2. Add a public hostname — the dashboard lives at `palworld.enemylav.cloud` —
+   service type HTTP, URL `api:8080`. Keep `pal.enemylav.cloud` for the game
+   port forward; use a separate name for the dashboard.
+
+Then start it:
+
+```sh
+docker --context optiplex compose up -d
+```
+
+The dashboard is public at `https://palworld.enemylav.cloud/` with no
+authentication by design: player names, levels and pings are visible, IPs are
+never exposed.
+To lock it down later, set `API_TOKEN` as described above or front the
+hostname with a Cloudflare Access policy.
 
 First deployment builds the image on optiplex and starts only the new service;
 the game container is not recreated:

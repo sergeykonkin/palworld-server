@@ -74,7 +74,7 @@ services:
       PALWORLD_REST_URL: http://palworld:8212
       # Shown on the dashboard as the connect address (the game API does not
       # know its own public hostname):
-      CONNECT_ADDRESS: "pal.enenmylav.cloud:8211"
+      CONNECT_ADDRESS: "pal.enemylav.cloud:8211"
       # Optional bearer token for /api/* (set when exposing beyond localhost):
       # API_TOKEN: ${API_TOKEN:-}
 
@@ -89,6 +89,29 @@ services:
         read_only: true
 
     mem_limit: 64m
+
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Exposes the dashboard on the internet through a Cloudflare Tunnel.
+  # Outbound connection only; no router forward or inbound port needed.
+  # The public hostname is configured in the Zero Trust dashboard and
+  # must point to HTTP service api:8080.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: palworld-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Set TUNNEL_TOKEN in the laptop .env}
+
+    depends_on:
+      - api
+
+    mem_limit: 128m
 
     logging:
       options:
