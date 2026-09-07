@@ -145,12 +145,17 @@ const el = (tag, cls, text) => {
   return e;
 };
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const fmtDate = (t) => `${pad2(t.getDate())} ${pad2(t.getMonth() + 1)} ${t.getFullYear()}`;
+const fmtTime = (t) => `${pad2(t.getHours())}:${pad2(t.getMinutes())}:${pad2(t.getSeconds())}`;
+const fmtDateTime = (t) => `${fmtDate(t)} ${fmtTime(t)}`;
+
 function ago(isoTs) {
-  const s = Math.max(0, (Date.now() - new Date(isoTs).getTime()) / 1000);
+  const t = new Date(isoTs);
+  const s = Math.max(0, (Date.now() - t.getTime()) / 1000);
   if (s < 45) return 'just now';
   if (s < 3600) return Math.round(s / 60) + 'm ago';
-  if (s < 86400) return Math.round(s / 3600) + 'h ago';
-  return Math.round(s / 86400) + 'd ago';
+  return fmtDateTime(t);
 }
 function dur(sec) {
   sec = Math.round(sec);
@@ -239,7 +244,7 @@ function renderStatus(d) {
     ps.append(el('div', 'big warn', 'Paused'));
     if (s.paused_since) {
       const t = new Date(s.paused_since);
-      ps.append(el('div', 'small muted', `since ${t.toLocaleTimeString()} (${ago(s.paused_since)})`));
+      ps.append(el('div', 'small muted', `since ${fmtTime(t)} (${ago(s.paused_since)})`));
     }
     ps.append(el('div', 'note', 'The world is frozen until a player connects.'));
   } else if (s.paused === 'no') {
@@ -250,7 +255,7 @@ function renderStatus(d) {
   }
 
   $('foot').textContent =
-    `updated ${new Date(d.now).toLocaleTimeString()} · sidecar up since ${new Date(d.sidecar_started_at).toLocaleString()}`;
+    `updated ${fmtTime(new Date(d.now))} · sidecar up since ${fmtDateTime(new Date(d.sidecar_started_at))}`;
 }
 
 const EV_ICON = {
@@ -261,7 +266,7 @@ function evText(e) {
   switch (e.type) {
     case 'join':  return `${e.player} joined`;
     case 'leave': return `${e.player} left`;
-    case 'pause': return `auto-paused${e.since ? ' (since ' + new Date(e.since).toLocaleTimeString() + ')' : ''}`;
+    case 'pause': return `auto-paused${e.since ? ' (since ' + fmtTime(new Date(e.since)) + ')' : ''}`;
     case 'resume':return 'resumed';
     case 'server_unreachable': return `server unreachable (${e.detail || '?'})`;
     case 'server_reachable':   return 'server reachable again';
