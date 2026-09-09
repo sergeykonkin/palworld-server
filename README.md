@@ -226,7 +226,7 @@ multipliers, four bases per guild and 15 workers per base.
 | Game update check | Enabled; every hour at minute 45; five-minute player warning |
 | Backup schedule | Every day at 03:30 |
 | Backup retention | Delete archives older than 14 days |
-| Container memory | 6 GiB limit, 2 GiB soft reservation |
+| Container memory | 12 GiB limit, 2 GiB soft reservation |
 
 The image defaults enable backups, REST API, player logging and updates on boot.
 Scheduled restarts skip occupied servers by default. The game and auto-pause monitor
@@ -238,9 +238,9 @@ directory.
 
 ## Hardware
 
-optiplex has 7.6 GiB of usable RAM and 7.9 GiB of swap. `/d` is an ext4 filesystem
+optiplex has 15 GiB of usable RAM and 7.9 GiB of swap. `/d` is an ext4 filesystem
 on `/dev/sda1`. Docker Engine is installed on the host.
-The 6 GiB container limit leaves memory for the host. Swap can absorb memory pressure
+The 12 GiB container limit leaves memory for the host. Swap can absorb memory pressure
 but is slower than RAM. Four-player performance needs verification during play.
 The image documentation lists 16 GB RAM as its minimum:
 [requirements](https://palworld-server-docker.loef.dev/).
